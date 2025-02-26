@@ -104,7 +104,7 @@ $$ Sleep Quality = \beta_0 + \beta_1 (Stress) + \beta_2 (Caffeine) + \beta_3 (St
 ## **Project Contributors**  
 - Team: **Degree of Freedom**  
 - Course: **STAT-423**  
-- Institution: **[Your University Name]**  
+- Institution: **[University of Washington]**  
   
 ---  
 ## **License**  
