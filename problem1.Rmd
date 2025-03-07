@@ -1,0 +1,188 @@
+---
+title: "423_final"
+output: pdf_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(MASS)
+library(ggplot2)
+library(corrplot)
+library(GGally)
+```
+
+```{r}
+# Data Preparation
+sleep_df <- read_csv('/Users/edisonlu/Desktop/STAT 423/sleep_cycle_productivity.csv',
+                     show_col_types = FALSE)
+
+sleep_df <- sleep_df %>%
+  mutate(
+    `Sleep Start Time` = hms::hms(round(as.numeric(`Sleep Start Time`) * 3600)),
+    `Sleep End Time` = hms::hms(round(as.numeric(`Sleep End Time`) * 3600)),
+    Age = as.factor(Age),
+    Gender = as.factor(Gender),
+    `Sleep Quality` = as.factor(`Sleep Quality`),
+    `Productivity Score` = as.factor(`Productivity Score`),
+    `Mood Score` = as.factor(`Mood Score`),
+    `Stress Level` = as.factor(`Stress Level`)
+  )
+
+summary(sleep_df)
+```
+
+```{r}
+# Elementary Data Analysis
+hist(sleep_df$`Total Sleep Hours`,
+     main = "Distribution of total sleep hours",
+     xlab = "Total Sleep Hours",
+     col = "purple", border = "gold")
+
+# Plot distribution of interested parameters
+par(mfrow = c(2,2))
+
+plot_fun <- function(var, title, xtitle) {
+  plot <- hist(var, 
+     main = title,
+     xlab = xtitle,
+     col = "lightblue", border = "black")
+  
+  return(plot)
+}
+
+plot_fun(sleep_df$`Exercise (mins/day)`, "Histogram of Exercise Minutes", "Exercise (mins/day)")
+plot_fun(sleep_df$`Caffeine Intake (mg)`, "Histogram of Caffeine Intake (mg)", "Caffeine Intake (mg)")
+plot_fun(sleep_df$`Screen Time Before Bed (mins)`, "Histogram of sleep time before bed (mins)", "Screen time before time (mins)")
+plot_fun(sleep_df$`Work Hours (hrs/day)`, "Histogram of Work hours", "Work hours")
+```
+```{r}
+# Some more EDA
+sleep_df_grouped <- sleep_df %>%
+  group_by(Age) %>%
+  summarise(mean_sleep_hours = mean(`Total Sleep Hours`), .groups = "drop")
+
+ggplot(data = sleep_df_grouped,
+       mapping = aes(x = Age, y = mean_sleep_hours)) +
+  geom_point(size = 2) +
+  labs(
+    title = "Mean total sleep hours by age",
+    x = "Age",
+    y = "Mean sleep hours"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+# Explore relationship between the response variable and predicting variables we are interested in
+plot(x = sleep_df$`Exercise (mins/day)`,
+     y = sleep_df$`Total Sleep Hours`,
+     main = "Scatterplot of exercise and total sleep hours",
+     xlab = "Exercise (mins/day)",
+     ylab = "Total Sleep Hours")
+
+plot(x = sleep_df$`Caffeine Intake (mg)`,
+     y = sleep_df$`Total Sleep Hours`,
+     main = "Scatterplot of Caffeine Intake and total sleep hours",
+     xlab = "Caffeine Intake",
+     ylab = "Total Sleep Hours")
+
+plot(x = sleep_df$`Screen Time Before Bed (mins)`,
+     y = sleep_df$`Total Sleep Hours`,
+     main = "Scatterplot of Screen Time Before Bed and total sleep hours",
+     xlab = "Screen Time Before Bed",
+     ylab = "Total Sleep Hours")
+```
+
+After completing some preliminary data exploration, it has come to my attention that the main four interested variables, namely exercise per day (unit: minutes), caffeine intake (unit: mg), screen time before bed time (unit: minutes), and work hours does not show any sign of skewness in their respective distributions, hence it is unnecessary to conduct transformation on them.
+
+```{r}
+# Construct the full multiple linear regression model
+full_model <- lm(`Total Sleep Hours` ~ Age + Gender + `Sleep Quality` + `Exercise (mins/day)` + `Caffeine Intake (mg)` + `Screen Time Before Bed (mins)` + `Work Hours (hrs/day)` + `Productivity Score` + `Mood Score` + `Stress Level`, data = sleep_df)
+
+summary(full_model)
+```
+
+```{r}
+# Apply Box-Cox transformation
+boxcox_result <- boxcox(full_model, lambda = seq(-2, 2, by = 0.1))
+boxcox_result
+
+optimal_lambda <- boxcox_result$x[which.max(boxcox_result$y)]
+cat("The optimal lambda value is", optimal_lambda)
+
+abline(v = optimal_lambda, col = "red", lwd = 2)
+text(optimal_lambda, par("usr")[4] - 50, labels = round(optimal_lambda, 3), col = "red", pos = 4)
+```
+```{r}
+# Transform the response variable
+# sleep_df$`Total Sleep Hours` <- sapply()
+```
+
+
+```{r}
+# ANOVA on whether gender has influence on sleep quality
+lm.fit_gender <- lm(`Total Sleep Hours` ~ Gender, data = sleep_df)
+anova_gender <- anova(lm.fit_gender, full_model)
+
+print(anova_gender)
+
+# ANOVA on whether age has influence on sleep quality
+lm.fit_age <- lm(`Total Sleep Hours` ~ Age, data = sleep_df)
+anova_age <- anova(lm.fit_age, full_model)
+
+print(anova_age)
+```
+
+```{r}
+# Feature selection using ANOVA F-test
+step_model <- step(full_model, direction = "both")
+summary(step_model)
+```
+
+```{r}
+# ANOVA F-test
+anova(step_model, full_model)
+```
+
+```{r}
+# Check for model assumptions
+par(mfrow = c(2,2))
+
+plot(full_model)
+
+cooksd <- cooks.distance(full_model)
+plot(cooksd, type = "h", col = "black", lwd = 2, ylab = "Cook's distance", 
+     xlab = "Observation number", main = "Cook’s Distance Plot")
+abline(h = 4/length(cooksd), col = "red", lty = 2)  # Add threshold line
+```
+
+```{r}
+res <- residuals(full_model)
+hist(res, breaks = 30,
+     prob = TRUE,
+     main = "Histogram of residuals of full model",
+     xlab = "Residuals",
+     ylab = "Density",
+     col = "purple", border = "gold")
+
+curve(dnorm(x, mean = mean(res), sd = sd(res)), col = "black", lwd = 2, add = TRUE)
+```
+
+```{r}
+# Check for multicollinarity
+cor_matrix <- sleep_df %>%
+  dplyr::select(`Total Sleep Hours`, `Exercise (mins/day)`, `Caffeine Intake (mg)`,
+         `Screen Time Before Bed (mins)`, `Work Hours (hrs/day)`) %>%
+  cor(use = "complete.obs")
+
+corrplot(cor_matrix, method = "color", type = "upper",
+         col = colorRampPalette(c("blue", "white", "red"))(200),
+         tl.cex = 0.8, tl.col = "black", addCoef.col = "black", number.cex = 0.7)
+```
