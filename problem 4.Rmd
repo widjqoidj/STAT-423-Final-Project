@@ -1,0 +1,119 @@
+---
+title: "STAT423 Final Project"
+author: "Chenyi Wang"
+date: "2025-03-07"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# load library
+```{r}
+library(ggplot2)
+library(dplyr)
+library(car)
+library(MASS)
+```
+
+# load the data
+```{r}
+sleep_data <- read.csv("/Users/macbook/Downloads/sleep_cycle_productivity.csv")
+```
+
+# check for missing values
+```{r}
+colSums(is.na(sleep_data))
+```
+# Ensure all variables are numeric and within reasonable ranges
+```{r}
+summary(sleep_data)
+```
+# Standardize data
+```{r}
+sleep_data <- sleep_data %>%
+  mutate(
+    Stress_Level = scale(Stress.Level),
+    Sleep_Quality = scale(Sleep.Quality),
+    Caffeine_Intake = scale(Caffeine.Intake..mg.)
+  )
+```
+
+# Scatter plot for stress level vs. sleep quality
+```{r}
+ggplot(sleep_data, aes(x = Stress_Level, y = Sleep_Quality)) +
+  geom_jitter(width = 0.2, height = 0.2, alpha = 0.5) +
+  labs(title = "Stress Level vs. Sleep Quality", 
+       x = "Stress Level", 
+       y = "Sleep Quality")
+```
+
+# Scatter plot for caffeine intake vs. sleep quality
+```{r}
+ggplot(sleep_data, aes(x = Caffeine_Intake, y = Sleep_Quality)) +
+  geom_jitter(width = 0.2, height = 0.2, alpha = 0.5) +
+  labs(title = "Caffeine Intake vs. Sleep Quality",
+       x = "Caffeine Intake (mg)",
+       y = "Sleep Quality")
+```
+# Summary Statistics
+```{r}
+summary_stats <- sleep_data %>%
+  summarise(
+    Stress_Mean = mean(Stress_Level),
+    Stress_Median = median(Stress_Level),
+    Stress_SD = sd(Stress_Level),
+    Sleep_Mean = mean(Sleep_Quality),
+    Sleep_Median = median(Sleep_Quality),
+    Sleep_SD = sd(Sleep_Quality),
+    Caffeine_Mean = mean(Caffeine_Intake),
+    Caffeine_Median = median(Caffeine_Intake),
+    Caffeine_SD = sd(Caffeine_Intake)
+  )
+print(summary_stats)
+```
+# Stratify by caffeine intake levels (low, moderate, high)
+```{r}
+sleep_data <- sleep_data %>%
+  mutate(Caffeine_Level = case_when(
+    Caffeine_Intake < -0.5 ~ "Low",
+    Caffeine_Intake >= -0.5 & Caffeine_Intake <= 0.5 ~ "Moderate",
+    Caffeine_Intake > 0.5 ~ "High"
+  ))
+```
+# Compare means of stress level and sleep quality between caffeine groups
+```{r}
+caffeine_groups <- sleep_data %>%
+  group_by(Caffeine_Level) %>%
+  summarise(
+    Mean_Stress = mean(Stress_Level),
+    Mean_Sleep = mean(Sleep_Quality)
+  )
+print(caffeine_groups)
+```
+
+# Hypothesisi Testing
+```{r}
+model <- lm(Sleep_Quality ~ Stress_Level * Caffeine_Intake, data = sleep_data)
+summary(model)
+```
+# Residuals vs. Fitted values plot
+```{r}
+ggplot(data = data.frame(fitted = fitted(model), residuals = residuals(model)), 
+       aes(x = fitted, y = residuals)) +
+  geom_point(alpha = 0.3) +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(title = "Residuals vs. Fitted Values", x = "Fitted Values", y = "Residuals") 
+```
+# QQ plot of residuals
+```{r}
+qqnorm(residuals(model))
+qqline(residuals(model), col = "red")
+```
+# Check for multicollinearity using VIF
+```{r}
+vif_values <- vif(model, type = "predictor")
+print(vif_values)
+```
+
+
