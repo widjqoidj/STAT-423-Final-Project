@@ -1,0 +1,116 @@
+---
+title: "Caffeine as a Moderator Between Stress and Sleep Quality"
+output:
+  pdf_document: default
+  word_document: default
+header-includes:
+    - \usepackage{amsmath, amssymb}
+    - \usepackage{setspace} 
+---
+
+\onehalfspacing
+
+```{r setup, include=FALSE}
+# Use this code chunk to include libraries, and set global options.
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+```
+
+       
+### 1. Data Preparation
+
+```{r}
+library(tidyverse)
+library(car)    
+library(gridExtra) 
+
+# Load dataset
+data <- read.csv("sleep_cycle_productivity.csv")
+
+# Select and rename relevant columns
+data_clean <- data %>%
+  select(
+    StressLevel = `Stress.Level`,          
+    CaffeineIntake = `Caffeine.Intake..mg.`, 
+    SleepQuality = `Sleep.Quality`
+  ) %>%
+  na.omit() 
+
+# Standardize variables
+data_clean <- data_clean %>%
+  mutate(
+    Stress_z = scale(StressLevel),
+    Caffeine_z = scale(CaffeineIntake),
+    SleepQuality_z = scale(SleepQuality)
+  )
+
+```
+
+
+### 2. EDA
+
+```{r}
+# Scatter plot: Stress vs. Sleep Quality
+p1 <- ggplot(data_clean, aes(x = Stress_z, y = SleepQuality_z)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(x = "Standardized Stress", y = "Standardized Sleep Quality",
+       title = "Stress vs. Sleep Quality") +
+  theme_minimal()
+
+# Scatter plot: Caffeine vs. Sleep Quality
+p2 <- ggplot(data_clean, aes(x = Caffeine_z, y = SleepQuality_z)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red") +
+  labs(x = "Standardized Caffeine", y = "Standardized Sleep Quality",
+       title = "Caffeine vs. Sleep Quality") +
+  theme_minimal()
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+From the above scatter plots, we can see that neither stress nor caffeine shows a strong standalone linear relationship with sleep quality.
+
+### 3. Hypothesis Testing: Multiple Regressioin Model with Interation Term
+
+```{r}
+model <- lm(SleepQuality_z ~ Stress_z + Caffeine_z + Stress_z : Caffeine_z, data = data_clean)
+
+summary(model)
+```
+
+Null Main Effects: Neither stress nor caffeine alone predicts sleep quality (p > 0.05), aligning with the flat trendlines in your scatter plots.
+
+Null Interaction: The interaction term's $\beta$ (-0.021) is not statistically significant (p = 0.139), failing to support the hypothesis that caffeine moderates the stress-sleep relationship.
+
+Effect Sizes: All coefficients are extremely small, suggesting no practical significance even if some terms were statistically significant.
+
+
+
+### 4. Model Diagnostics   
+
+```{r}
+# Residuals vs. Fitted values plot
+plot(model, which = 1)
+
+# Q-Q plot for normality check
+plot(model, which = 2)
+
+# VIF for multicollinearity
+vif(model)
+
+```
+
+Linearity: No clear violation, as indicated by the shape in the residuals vs. fitted plot.
+
+Homoscedasticity: Not violated, residual variance stable across all fitted values, no funnel shape in the residuals vs. fitted plot.
+
+Normality: Mostly Normal, points align closely with the diagonal line, except slight deviations in tails.
+
+Multicollinearity: All VIFs is nearly 1.0 (Stress_z: 1.0001, Caffeine_z: 1.0004, Interaction: 1.0003), which indicates no Collinearity, predictors are independent, coefficient stability ensured.
+
+
+
+### 5. Conclusion
+
+The model meets regression assumptions (linearity, normality, homoscedasticity, no multicollinearity), but it explains no variance in sleep quality. Results strongly suggest no meaningful linear relationships between stress, caffeine, their interaction and sleep quality.
