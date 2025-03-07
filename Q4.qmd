@@ -1,0 +1,85 @@
+---
+title: "project"
+format: html
+editor: visual
+---
+
+###Question Does screen time before bed negatively affect sleep quality?
+
+```{r}
+rm(list = ls())
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(car)
+library(stats)
+library(corrplot)
+```
+#Clean and Select Data
+```{r}
+sleep <- read.csv("sleep_cycle_productivity.csv")
+selected_data <- sleep %>%
+  select(Age, Sleep.Quality, Stress.Level, Exercise..mins.day., Screen.Time.Before.Bed..mins., Caffeine.Intake..mg.) %>% drop_na()
+```
+#Data Visualization
+```{r}
+par(mfrow = c(1, 2))  # Arrange plots in 1 row, 2 columns
+
+boxplot(selected_data$Screen.Time.Before.Bed..mins., 
+        main = "Screen Time Before Bed (mins)", 
+        ylab = "Minutes")
+
+boxplot(selected_data$Sleep.Quality, 
+        main = "Sleep Quality", 
+        ylab = "Sleep Quality Score")
+ggplot(selected_data, aes(x = Screen.Time.Before.Bed..mins., y = Sleep.Quality)) +
+  geom_point(alpha=0.5, color="blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Scatter Plot: Sleep Quality vs. Screen Time Before Bed",
+       x = "Screen Time Before Bed (mins)", y = "Sleep Quality (1-10)") +
+  theme_minimal()
+cor_matrix <- cor(selected_data %>% select(Age, Sleep.Quality, Stress.Level, Exercise..mins.day., Screen.Time.Before.Bed..mins., Caffeine.Intake..mg.))
+cor_matrix
+corrplot(cor_matrix, method = "circle", type = "lower",
+         col = colorRampPalette(c("blue", "white", "red"))(200),
+         tl.col = "black", tl.srt = 45,
+         addCoef.col = "black", number.cex = 0.7, 
+         title = "Correlation Matrix", mar = c(1, 1, 2, 1))
+```
+
+Based on the scatter, The data points are spread out,there does not appear to be a strong visible trend.The red line in the middle suggests most people reported an average sleep quality. The chart does not show if more screen time always leads to worse sleep. More analysis is needed to find a clear connection.
+
+The correlation plot shows weak or negligible relationships among the selected variables, as most correlation values are close to zero.  Overall, no strong linear relationships exist, we need to search these factors may be influenced by other variables or require a larger datasets for clearer trends.
+```{r}
+full_model <- lm(Sleep.Quality ~ Screen.Time.Before.Bed..mins. + Age + Stress.Level + Exercise..mins.day.+ Caffeine.Intake..mg., data = selected_data)
+summary(full_model)
+reduced_model <- lm(Sleep.Quality ~ Age + Stress.Level + Caffeine.Intake..mg., data = selected_data)
+summary(reduced_model)
+anova(reduced_model, full_model)
+
+```
+For full model: 
+Screen Time Before Bed: p=0.888 (Not significant)
+Age: p=0.646 (Not significant)
+Stress Level: p=0.305 (Not significant)
+Exercise: p=0.974 (Not significant)
+Caffeine Intake: p=0.957 (Not significant)
+Overall Model Significance: The F-statistic p-value = 0.9383, thus the model is not statistically significant.
+For reduced model:
+Age: p=0.645 (Not significant)
+Stress Level: 
+p=0.304 (Not significant)
+Caffeine Intake: 
+p=0.955 (Not significant)
+Overall Model Significance: F-statistic p-value = 0.7418, thus this model is also not significant.
+```{r}
+par(mfrow = c(1, 2))
+plot(model$fitted.values, model$residuals, main = "Residuals vs Fitted",
+xlab = "Fitted Values",
+ylab = "Residuals")
+abline(h = 0,col = "red")
+qqnorm(model$residuals, main = "Normal Q-Q Plot") 
+qqline(model$residuals,col ="red")
+```
